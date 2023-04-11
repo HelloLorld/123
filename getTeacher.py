@@ -1,6 +1,6 @@
 import json
 import codecs
-# import re
+import re
 from datetime import datetime 
 
 def findTeacher(teacher="", day="", time="",schedule={}): 
@@ -35,6 +35,7 @@ def lessonToString(lesson={}):
         strTypeOfLesson += f"{lessonType}\n"
     strTypeOfLesson = strTypeOfLesson[0:len(strTypeOfLesson) - 1]
     return f"{nameOfLesson}\nКабинет: {office}\nВремя: {timeOfLesson}\nГруппы: {strGroups}\nВид занятия:\n{strTypeOfLesson}"
+
 def findGroup(group="", day="", time="", schedule={}):
     teachers = schedule.keys()
     needTime = datetime.strptime(time, "%H:%M").time()
@@ -44,11 +45,9 @@ def findGroup(group="", day="", time="", schedule={}):
             for lesson in lessons:
                 groups = lesson["groups"]
                 lessonTime = lessonTime = datetime.strptime(lesson["time"], "%H:%M").time()
-                # endTime = lessonTime
-                # match = re.search("\dч", lesson["type"])
-                # # if (match != None):
-                if group in groups and needTime <= lessonTime:
-                    return lesson
+                for grp in groups:
+                    if grp in group and needTime <= lessonTime:
+                        return lesson
     return None
 
 def getSchedule():
@@ -56,11 +55,39 @@ def getSchedule():
     schedule: dict = json.load(fileObj)
     return schedule
 
+def getAvailableGroups():
+    schedule = getSchedule()
+    groups = set()
+    regExps = []
+    regExps.append(re.compile("\d\d[а-яА-Я]{2,}"))
+    regExps.append(re.compile("\d\d-[а-яА-Я]{2,}"))
+    for teacherKey in schedule.keys():
+        teacherSchedule = schedule.get(teacherKey)
+        for dayKey in teacherSchedule.keys():
+            lessons = teacherSchedule.get(dayKey)
+            for lesson in lessons:
+                lessonGroups = lesson.get("groups")
+                for group in lessonGroups:
+                    match = None
+                    for regEx in regExps:
+                        match = regEx.search(group)
+                        if (match != None):
+                            break
+                    if match != None:
+                        groupSplited = group.split(",")
+                        for grSpl in groupSplited:
+                            for regEx in regExps:
+                                match = regEx.search(grSpl)
+                                if match!= None:
+                                    groups.add(re.sub("нч|чн|\.", "", grSpl))
+    return sorted(list(groups))
+
 def main():
     fileObj = codecs.open( "test.json", "r", "utf_8_sig" )
     schedule: dict = getSchedule()
-    print(findTeacher('Бухнин Алексей Викторович', "Понедельник", "13:10", schedule))
-    print(findGroup('20СБК', 'Понедельник', '10:50', schedule))
+    # print(findTeacher('Бухнин Алексей Викторович', "Понедельник", "13:10", schedule))
+    # print(findGroup('20СБК', 'Понедельник', '10:50', schedule))
+    print(getAvailableGroups())
 
 if __name__ == "__main__":
     main()

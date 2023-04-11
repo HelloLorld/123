@@ -14,7 +14,7 @@ class UserState(StatesGroup):
     timeSchedule = State()
 
 
-bot = Bot("1972867313:AAHyPXCEWemfWDrQtvAC-rO6V3yGi9rG0OM")
+bot = Bot("1972867313:AAHgZ9CY7WslJqw9HSBmHvmMTHfmIqrv-yM")
 
 dp = Dispatcher(bot, storage=MemoryStorage())
 
@@ -37,6 +37,81 @@ times.add(InlineKeyboardButton(text="7:30", callback_data="time_7:30")).add(Inli
 @dp.message_handler(commands=['start'])
 async def start_command(message: types.Message):
     await message.answer("Начинаем тест расписания", reply_markup=kb_schedule)
+
+@dp.message_handler(lambda message: message.text == 'Найти группу')
+async def find_group(message: types.Message):
+    groups = getTeacher.getAvailableGroups()
+    groupsKb = InlineKeyboardMarkup(row_width=2)
+    counter = 0
+    for group in groups:
+        groupsKb.add(InlineKeyboardButton(text=group, callback_data=f"gr_{group}"))
+        counter += 1
+        if counter == 5:
+            break
+    groupsKb.row(InlineKeyboardButton(text="Назад", callback_data=f"prGroups|{counter}"), InlineKeyboardButton(text="Вперед", callback_data=f"nxGroups|{counter}"))
+    await message.answer("Выберите группу", reply_markup=groupsKb)
+
+@dp.callback_query_handler(Text(startswith="nxGroups"))
+async def next_groups(callback: types.CallbackQuery, state: FSMContext):
+    counter = callback.data.split("|")[1]
+    query = callback.data.split("|")
+    groupsKb = InlineKeyboardMarkup(row_width=2)
+    counter = int(query[1])
+    listEnd = False
+    counterTmp = 0
+    keys = getTeacher.getAvailableGroups()
+    for i in range(counter, counter + 5):
+        if (i >= len(keys)):
+            listEnd = True
+            break
+        data = f"gr_{keys[i]}"
+        print("buttonSize: " + str(len(data.encode('utf-8'))))
+        groupsKb.add(InlineKeyboardButton(text=keys[i], callback_data=data))
+        counterTmp += 1
+        if counterTmp % 5 == 0:
+            break
+    if listEnd:
+        groupsKb.row(InlineKeyboardButton(text="Назад", callback_data=f"prGroups|{counter + counterTmp}"))
+    else:
+        groupsKb.row(InlineKeyboardButton(text="Назад", callback_data=f"prGroups|{counter + counterTmp}"),InlineKeyboardButton(text="Далее", callback_data=f"nxGroups|{counter + counterTmp}"))
+    print("#######################")
+    await callback.message.edit_reply_markup(reply_markup=groupsKb)
+    await callback.answer()
+
+@dp.callback_query_handler(lambda c: c.data.startswith("prGroups"))
+async def previous_group(callback: types.CallbackQuery):
+    query = callback.data.split("|")
+    groupsKb = InlineKeyboardMarkup(row_width=2)
+    counter = int(query[1])
+    keys = getTeacher.getAvailableGroups()
+    listEnd = False
+    counterTmp = 0
+    for i in range(counter, counter - 5, -1):
+        if (i < 0):
+            listEnd = True
+            break
+        if (i >= len(keys)):
+            continue
+        groupsKb.add(InlineKeyboardButton(text=keys[i], callback_data=f"gr_{keys[i]}"))
+        counterTmp += 1
+        if counterTmp % 5 == 0:
+            break
+    if listEnd:
+        groupsKb.row(InlineKeyboardButton(text="Далее", callback_data=f"nxGroups|{counter - counterTmp}"))
+    else:
+        groupsKb.row(InlineKeyboardButton(text="Назад", callback_data=f"prGroups|{counter - counterTmp}"),InlineKeyboardButton(text="Далее", callback_data=f"nxGroups|{counter - counterTmp}"))
+    await callback.message.edit_reply_markup(reply_markup=groupsKb)
+    await callback.answer()
+
+@dp.callback_query_handler(Text(startswith="gr_"))
+async def chosen_group(callback: types.CallbackQuery, state: FSMContext):
+    group = callback.data.split("_")[1]
+    await callback.message.delete()
+    await callback.message.answer(f"Группа: {group}")
+    async with state.proxy() as data:
+        data['groupState'] = group
+    await callback.message.answer("Выберите день", reply_markup=days)
+    await callback.answer()
 
 @dp.message_handler(lambda message: message.text == 'Найти преподавателя')
 async def find_teacher(message: types.Message):
@@ -77,18 +152,26 @@ async def set_time(callback: types.CallbackQuery, state: FSMContext):
     chosenTime = callback.data.split("_")[1]
     await callback.message.delete()
     await callback.message.answer(f"Время: {chosenTime}")
-    lesson = getTeacher.findTeacher(teacher=data.get("teacherState"), day=data.get("chosenDay"), time=callback.data.split("_")[1], schedule=getTeacher.getSchedule())
-    if (lesson != None):
-        strLesson = getTeacher.lessonToString(lesson=lesson)
-        await callback.message.answer(f"Ближайшее занятие преподавателя: \n{strLesson}\n")
-    lessons = getTeacher.findTeacherOnAllDay(teacher=data.get("teacherState"), day=data.get("chosenDay"), schedule=getTeacher.getSchedule())
-    messageAnswer = "Все предметы в этот день:\n"
-    for lesson in lessons:
-        strLesson = getTeacher.lessonToString(lesson=lesson)
-        message = f"{strLesson}\n\n"
-        messageAnswer += message
-    messageAnswer = messageAnswer[0:len(messageAnswer) - 1]
-    await callback.message.answer(messageAnswer)
+    if (data.get("groupState") != None):
+        lesson = getTeacher.findGroup(group=data.get("groupState"), day=data.get("chosenDay"), time=callback.data.split("_")[1], schedule=getTeacher.getSchedule())
+        if (lesson != None):
+            strLesson = getTeacher.lessonToString(lesson)
+            await callback.message.answer(f"Ближайшее занятие группы: \n{strLesson}\n")
+        else:
+            await callback.message.answer(f"Не удалось найти ближайшее занятие")
+    else:
+        lesson = getTeacher.findTeacher(teacher=data.get("teacherState"), day=data.get("chosenDay"), time=callback.data.split("_")[1], schedule=getTeacher.getSchedule())
+        if (lesson != None):
+            strLesson = getTeacher.lessonToString(lesson=lesson)
+            await callback.message.answer(f"Ближайшее занятие преподавателя: \n{strLesson}\n")
+        lessons = getTeacher.findTeacherOnAllDay(teacher=data.get("teacherState"), day=data.get("chosenDay"), schedule=getTeacher.getSchedule())
+        messageAnswer = "Все предметы в этот день:\n"
+        for lesson in lessons:
+            strLesson = getTeacher.lessonToString(lesson=lesson)
+            message = f"{strLesson}\n\n"
+            messageAnswer += message
+        messageAnswer = messageAnswer[0:len(messageAnswer) - 1]
+        await callback.message.answer(messageAnswer)
     await state.finish()
 
 @dp.callback_query_handler(lambda c: c.data.startswith("nxTchrs"))
