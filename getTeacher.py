@@ -14,6 +14,27 @@ def findTeacher(teacher="", day="", time="",schedule={}):
             return lesson
     return None
 
+def findTeacherOnAllDay(teacher="", day="", schedule={}):
+    lessons = schedule[teacher][day]
+    if (len(lessons) == 0):
+        return None
+    return lessons
+
+def lessonToString(lesson={}):
+    nameOfLesson = lesson.get("nameOfLesson")
+    groups = lesson.get("groups")
+    office = lesson.get("office")
+    typesOfLesson = lesson.get("type")
+    timeOfLesson = lesson.get("time")
+    strGroups = ""
+    for group in groups:
+        strGroups += f"{group}; "
+    strGroups = strGroups[0:len(strGroups) - 2]
+    strTypeOfLesson = ""
+    for lessonType in typesOfLesson:
+        strTypeOfLesson += f"{lessonType}\n"
+    strTypeOfLesson = strTypeOfLesson[0:len(strTypeOfLesson) - 1]
+    return f"{nameOfLesson}\nКабинет: {office}\nВремя: {timeOfLesson}\nГруппы: {strGroups}\nВид занятия:\n{strTypeOfLesson}"
 def findGroup(group="", day="", time="", schedule={}):
     teachers = schedule.keys()
     needTime = datetime.strptime(time, "%H:%M").time()

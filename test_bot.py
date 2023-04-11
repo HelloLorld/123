@@ -79,13 +79,16 @@ async def set_time(callback: types.CallbackQuery, state: FSMContext):
     await callback.message.answer(f"Время: {chosenTime}")
     lesson = getTeacher.findTeacher(teacher=data.get("teacherState"), day=data.get("chosenDay"), time=callback.data.split("_")[1], schedule=getTeacher.getSchedule())
     if (lesson != None):
-        nameOfLesson = lesson.get("nameOfLesson")
-        groups = lesson.get("groups")
-        office = lesson.get("office")
-        typeOfLesson = lesson.get("type")
-        await callback.message.answer(f"Ближайшее занятие преподавателя: \n{nameOfLesson}\nКабинет: {office}\nГруппы: {groups}\nВид занятия: {typeOfLesson}")
-    else:
-        await callback.message.answer("В это время преподавателя нет")
+        strLesson = getTeacher.lessonToString(lesson=lesson)
+        await callback.message.answer(f"Ближайшее занятие преподавателя: \n{strLesson}\n")
+    lessons = getTeacher.findTeacherOnAllDay(teacher=data.get("teacherState"), day=data.get("chosenDay"), schedule=getTeacher.getSchedule())
+    messageAnswer = "Все предметы в этот день:\n"
+    for lesson in lessons:
+        strLesson = getTeacher.lessonToString(lesson=lesson)
+        message = f"{strLesson}\n\n"
+        messageAnswer += message
+    messageAnswer = messageAnswer[0:len(messageAnswer) - 1]
+    await callback.message.answer(messageAnswer)
     await state.finish()
 
 @dp.callback_query_handler(lambda c: c.data.startswith("nxTchrs"))
