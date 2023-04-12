@@ -24,15 +24,27 @@ findGroup = KeyboardButton('Найти группу')
 kb_schedule = ReplyKeyboardMarkup(resize_keyboard=True)
 kb_schedule.row(findTeacher, findGroup)
 
+cancelButton = InlineKeyboardButton(text="Отмена", callback_data="cancel_")
+
 days = InlineKeyboardMarkup(row_width=2)
 days.add(InlineKeyboardButton(text="Понедельник", callback_data="day_Понедельник")).add(InlineKeyboardButton(text="Вторник", callback_data="day_Вторник")).\
     add(InlineKeyboardButton(text="Среда", callback_data="day_Среда")).add(InlineKeyboardButton(text="Четверг", callback_data="day_Четверг")).\
-    add(InlineKeyboardButton(text="Пятница", callback_data="day_Пятница")).add(InlineKeyboardButton(text="Суббота", callback_data="day_Суббота"))
+    add(InlineKeyboardButton(text="Пятница", callback_data="day_Пятница")).add(InlineKeyboardButton(text="Суббота", callback_data="day_Суббота")).\
+add(cancelButton)
 
 times = InlineKeyboardMarkup(row_width=2)
 times.add(InlineKeyboardButton(text="7:30", callback_data="time_7:30")).add(InlineKeyboardButton(text="9:20", callback_data="time_9:20")).\
     add(InlineKeyboardButton(text="11:10", callback_data="time_11:10")).add(InlineKeyboardButton(text="13:15", callback_data="time_13:15")).\
     add(InlineKeyboardButton(text="15:00", callback_data="time_15:00")).add(InlineKeyboardButton(text="16:45", callback_data="time_16:45"))
+
+
+@dp.callback_query_handler(Text(equals="cancel_"))
+async def cancel_command(callback: types.CallbackQuery, state: FSMContext):
+    await callback.message.delete_reply_markup()
+    await callback.message.delete()
+    await callback.message.answer("Действие отменено")
+    await callback.answer()
+    await state.finish()
 
 @dp.message_handler(commands=['start'])
 async def start_command(message: types.Message):
@@ -49,6 +61,7 @@ async def find_group(message: types.Message):
         if counter == 5:
             break
     groupsKb.row(InlineKeyboardButton(text="Назад", callback_data=f"prGroups|{counter}"), InlineKeyboardButton(text="Вперед", callback_data=f"nxGroups|{counter}"))
+    groupsKb.add(cancelButton)
     await message.answer("Выберите группу", reply_markup=groupsKb)
 
 @dp.callback_query_handler(Text(startswith="nxGroups"))
@@ -75,10 +88,11 @@ async def next_groups(callback: types.CallbackQuery, state: FSMContext):
     else:
         groupsKb.row(InlineKeyboardButton(text="Назад", callback_data=f"prGroups|{counter + counterTmp}"),InlineKeyboardButton(text="Далее", callback_data=f"nxGroups|{counter + counterTmp}"))
     print("#######################")
+    groupsKb.add(cancelButton)
     await callback.message.edit_reply_markup(reply_markup=groupsKb)
     await callback.answer()
 
-@dp.callback_query_handler(lambda c: c.data.startswith("prGroups"))
+@dp.callback_query_handler(Text(startswith="prGroups"))
 async def previous_group(callback: types.CallbackQuery):
     query = callback.data.split("|")
     groupsKb = InlineKeyboardMarkup(row_width=2)
@@ -100,6 +114,7 @@ async def previous_group(callback: types.CallbackQuery):
         groupsKb.row(InlineKeyboardButton(text="Далее", callback_data=f"nxGroups|{counter - counterTmp}"))
     else:
         groupsKb.row(InlineKeyboardButton(text="Назад", callback_data=f"prGroups|{counter - counterTmp}"),InlineKeyboardButton(text="Далее", callback_data=f"nxGroups|{counter - counterTmp}"))
+    groupsKb.add(cancelButton)
     await callback.message.edit_reply_markup(reply_markup=groupsKb)
     await callback.answer()
 
@@ -124,6 +139,7 @@ async def find_teacher(message: types.Message):
         if counter == 5:
             break
     teachers.row(InlineKeyboardButton(text="Назад", callback_data=f"prTchrs|{counter}"),InlineKeyboardButton(text="Далее", callback_data=f"nxTchrs|{counter}"))
+    teachers.add(cancelButton)
     await message.answer("Выберите преподавателя", reply_markup=teachers)
 
 @dp.callback_query_handler(Text(startswith="tcr_"))
@@ -198,6 +214,7 @@ async def next_teacher(callback: types.CallbackQuery):
     else:
         teachers.row(InlineKeyboardButton(text="Назад", callback_data=f"prTchrs|{counter + counterTmp}"),InlineKeyboardButton(text="Далее", callback_data=f"nxTchrs|{counter + counterTmp}"))
     print("#######################")
+    teachers.add(cancelButton)
     await callback.message.edit_reply_markup(reply_markup=teachers)
     await callback.answer()
     
@@ -224,6 +241,7 @@ async def previous_teacher(callback: types.CallbackQuery):
         teachers.row(InlineKeyboardButton(text="Далее", callback_data=f"nxTchrs|{counter - counterTmp}"))
     else:
         teachers.row(InlineKeyboardButton(text="Назад", callback_data=f"prTchrs|{counter - counterTmp}"),InlineKeyboardButton(text="Далее", callback_data=f"nxTchrs|{counter - counterTmp}"))
+    teachers.add(cancelButton)
     await callback.message.edit_reply_markup(reply_markup=teachers)
     await callback.answer()
 
